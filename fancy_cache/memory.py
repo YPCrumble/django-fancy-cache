@@ -63,9 +63,13 @@ def find_urls(
             if not cache.get(cache_key):
                 if purge:
                     keys_to_delete.append(url)
+                    if "/clubs/" in url and "/messages/" in url:
+                        LOGGER.exception("fancy_cache.memory.find_urls: cache.get not found for messages url %s", url)
                 continue
             if purge:
-                cache.delete(cache_key)
+                result = cache.delete(cache_key)
+                if not result and "/clubs/" in url and "/messages/" in url:
+                    LOGGER.exception("fancy_cache.memory.find_urls: cache.delete not found for messages url %s", url)
                 keys_to_delete.append(url)
             misses_cache_key = "%s__misses" % url
             misses_cache_key = md5(misses_cache_key)
@@ -88,6 +92,7 @@ def find_urls(
             if deleted is True:
                 return
 
+        LOGGER.exception("fancy_cache.delete_keys: delete_keys_cas failed for url %s", url)
         remembered_urls = cache.get(REMEMBERED_URLS_KEY, {})
         remembered_urls = delete_keys(keys_to_delete, remembered_urls)
         cache.set(REMEMBERED_URLS_KEY, remembered_urls, LONG_TIME)

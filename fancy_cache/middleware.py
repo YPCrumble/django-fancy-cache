@@ -180,6 +180,7 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
                 # via Memcached CAS.
                 return
 
+        LOGGER.exception("fancy_cache.remember_urls: _remember_url_cas failed for URL %s", url)
         remembered_urls = self.cache.get(REMEMBERED_URLS_KEY, {})
         remembered_urls = filter_remembered_urls(remembered_urls)
         remembered_urls[url] = (cache_key, expiration_time)
@@ -222,6 +223,8 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
                 "Django-fancy-cache failed to save using CAS after %s tries.",
                 tries,
             )
+        if result is True and "/clubs/" in url and "/messages/" in url:
+            LOGGER.info("fancy_cache._remember_url_cas: Successfully cached and remembered URL %s", url)
         return result
 
 
