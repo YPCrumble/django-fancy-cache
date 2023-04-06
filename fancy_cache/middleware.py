@@ -180,7 +180,7 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
                 # via Memcached CAS.
                 return
 
-        LOGGER.exception("fancy_cache.remember_urls: _remember_url_cas failed for URL %s", url)
+        LOGGER.exception("fancy_cache.remember_urls: _remember_url_cas failed for URL %s, result %s", url, result)
         remembered_urls = self.cache.get(REMEMBERED_URLS_KEY, {})
         remembered_urls = filter_remembered_urls(remembered_urls)
         remembered_urls[url] = (cache_key, expiration_time)
@@ -206,7 +206,10 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
 
             if remembered_urls is None:
                 # No cache entry; set the cache using `cache.set`.
+                LOGGER.info("fancy_cache._remember_url_cas: remembered_urls is None")
                 return False
+
+            LOGGER.info("fancy_cache._remember_url_cas: remembered_urls is not None")
 
             remembered_urls = filter_remembered_urls(remembered_urls)
 
