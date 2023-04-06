@@ -41,7 +41,10 @@ def find_urls(
 ) -> typing.Generator[
     typing.Tuple[str, str, typing.Optional[typing.Dict[str, int]]], None, None
 ]:
-    remembered_urls = cache.get(REMEMBERED_URLS_KEY, {})
+    if USE_MEMCACHED_CAS is True:
+        remembered_urls = cache._cache.get(REMEMBERED_URLS_KEY, {})
+    else:
+        remembered_urls = cache.get(REMEMBERED_URLS_KEY, {})
     keys_to_delete = []
     if urls:
         regexes = _urls_to_regexes(urls)
