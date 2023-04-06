@@ -133,7 +133,7 @@ def delete_keys(
     Helper function to delete `keys_to_delete` from the `remembered_urls` dict.
     """
     for url in keys_to_delete:
-        remembered_urls.pop(url)
+        remembered_urls.pop(url, None)
         misses_cache_key = "%s__misses" % url
         hits_cache_key = "%s__hits" % url
         cache.delete(misses_cache_key)
