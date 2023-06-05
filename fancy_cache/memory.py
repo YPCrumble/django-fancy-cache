@@ -67,7 +67,7 @@ def find_urls(
                 if purge:
                     keys_to_delete.append(url)
                     if "/clubs/" in url and "/messages/" in url:
-                        LOGGER.exception("fancy_cache.memory.find_urls: cache.get not found for messages url %s", url)
+                        LOGGER.info("fancy_cache.memory.find_urls: cache.get not found for messages url %s", url)
                 continue
             if purge:
                 result = cache.delete(cache_key)
