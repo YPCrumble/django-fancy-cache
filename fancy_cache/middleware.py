@@ -179,6 +179,15 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
                 # Remembered URLs have been successfully saved
                 # via Memcached CAS.
                 return
+            # CAS uses `cache._cache.get/set` so we need to set the
+            # REMEMBERED_URLS dict at that location.
+            # This is because CAS cannot call `BaseCache.make_key` to generate
+            # the key when it tries to get a cache entry set by `cache.get/set`.
+            remembered_urls = self.cache._cache.get(REMEMBERED_URLS_KEY, {})
+            remembered_urls = filter_remembered_urls(remembered_urls)
+            remembered_urls[url] = (cache_key, expiration_time)
+            self.cache._cache.set(REMEMBERED_URLS_KEY, remembered_urls, LONG_TIME)
+            return
 
         remembered_urls = self.cache.get(REMEMBERED_URLS_KEY, {})
         remembered_urls = filter_remembered_urls(remembered_urls)
@@ -205,7 +214,10 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
 
             if remembered_urls is None:
                 # No cache entry; set the cache using `cache.set`.
+                LOGGER.info("fancy_cache._remember_url_cas: remembered_urls is None")
                 return False
+
+            LOGGER.info("fancy_cache._remember_url_cas: remembered_urls is not None")
 
             remembered_urls = filter_remembered_urls(remembered_urls)
 
@@ -222,6 +234,8 @@ class FancyUpdateCacheMiddleware(UpdateCacheMiddleware):
                 "Django-fancy-cache failed to save using CAS after %s tries.",
                 tries,
             )
+        if result is True and "/clubs/" in url and "/messages/" in url:
+            LOGGER.info("fancy_cache._remember_url_cas: Successfully cached and remembered URL %s", url)
         return result
 
 
@@ -379,15 +393,6 @@ class FancyCacheMiddleware(
             if cache_alias is None:
                 cache_alias = DEFAULT_CACHE_ALIAS
             self.cache_alias = cache_alias
-            # TODO: Likely this will cause a conflict with this commit
-            # in Django 4.1+:
-            # https://github.com/django/django/commit/3ff7b15bb79f2ee5b7af245c55ae14546243bb77
-            # The commit uses a @property decorator to set self.cache
-            # instead of setting it directly as we do in the line below.
-            # We can likely solve this by simply removing this line,
-            # but will need to make sure that the library still works for
-            # older versions of Django that use this `self.cache =` method.
-            self.cache = caches[self.cache_alias]
         except KeyError:
             pass
 
