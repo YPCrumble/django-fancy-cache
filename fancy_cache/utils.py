@@ -1,6 +1,10 @@
 import hashlib
+import logging
 import time
 import typing
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def md5(x) -> str:
@@ -22,4 +26,5 @@ def filter_remembered_urls(
         for key, value in remembered_urls.items()
         if isinstance(value, tuple) and value[1] > now
     }
+
     return remembered_urls

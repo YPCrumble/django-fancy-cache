@@ -41,7 +41,10 @@ def find_urls(
 ) -> typing.Generator[
     typing.Tuple[str, str, typing.Optional[typing.Dict[str, int]]], None, None
 ]:
-    remembered_urls = cache.get(REMEMBERED_URLS_KEY, {})
+    if USE_MEMCACHED_CAS is True:
+        remembered_urls = cache._cache.get(REMEMBERED_URLS_KEY, {})
+    else:
+        remembered_urls = cache.get(REMEMBERED_URLS_KEY, {})
     keys_to_delete = []
     if urls:
         regexes = _urls_to_regexes(urls)
@@ -63,9 +66,15 @@ def find_urls(
             if not cache.get(cache_key):
                 if purge:
                     keys_to_delete.append(url)
+                    if "/clubs/" in url and "/messages/" in url:
+                        LOGGER.info("fancy_cache.memory.find_urls: cache.get not found for messages url %s", url)
                 continue
             if purge:
-                cache.delete(cache_key)
+                result = cache.delete(cache_key)
+                if result:
+                    LOGGER.info("fancy_cache.memory.find_urls: deleted cache entry for url %s", url)
+                if not result and "/clubs/" in url and "/messages/" in url:
+                    LOGGER.exception("fancy_cache.memory.find_urls: cache.delete not found for messages url %s", url)
                 keys_to_delete.append(url)
             misses_cache_key = "%s__misses" % url
             misses_cache_key = md5(misses_cache_key)
@@ -87,6 +96,14 @@ def find_urls(
             deleted = delete_keys_cas(keys_to_delete)
             if deleted is True:
                 return
+            # CAS uses `cache._cache.get/set` so we need to set the
+            # REMEMBERED_URLS dict at that location.
+            # This is because CAS cannot call `BaseCache.make_key` to generate
+            # the key when it tries to get a cache entry set by `cache.get/set`.
+            remembered_urls = cache._cache.get(REMEMBERED_URLS_KEY, {})
+            remembered_urls = delete_keys(keys_to_delete, remembered_urls)
+            cache._cache.set(REMEMBERED_URLS_KEY, remembered_urls, LONG_TIME)
+            return
 
         remembered_urls = cache.get(REMEMBERED_URLS_KEY, {})
         remembered_urls = delete_keys(keys_to_delete, remembered_urls)
@@ -121,7 +138,7 @@ def delete_keys(
     Helper function to delete `keys_to_delete` from the `remembered_urls` dict.
     """
     for url in keys_to_delete:
-        remembered_urls.pop(url)
+        remembered_urls.pop(url, None)
         misses_cache_key = "%s__misses" % url
         hits_cache_key = "%s__hits" % url
         cache.delete(misses_cache_key)
